@@ -1,12 +1,12 @@
-import 'dart:ffi';
 import 'dart:convert';
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:csv/csv.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:dio/dio.dart';
-import 'package:flutter_test/flutter_test.dart';
 import 'dart:async';
 
 void main() {
@@ -39,10 +39,9 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  FilePickerResult? result;
-  PlatformFile? file;
-  String filePath = "";
+  String content = '';
   String productRequest = '';
+  String nameFile = '';
   List<List<dynamic>> dataCSV = [];
   List<List<dynamic>> dataRequest = [];
   int csvLength = 0;
@@ -58,9 +57,8 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   Future<void> loadCSV() async {
-    final _rawData = await rootBundle.loadString("assets/csv.csv");
-    List<List<dynamic>> _listData =
-        const CsvToListConverter().convert(_rawData);
+    print('entrei');
+    List<List<dynamic>> _listData = const CsvToListConverter().convert(content);
     setState(() {
       dataCSV = _listData;
     });
@@ -136,15 +134,22 @@ class _MyHomePageState extends State<MyHomePage> {
                     height: 50,
                     child: ElevatedButton(
                       onPressed: () async {
-                        result = await FilePicker.platform.pickFiles(
-                          type: FileType.custom,
-                          allowMultiple: false,
-                          allowedExtensions: ['csv'],
-                        );
-                        file = result!.files.first;
-                        setState(() {
-                          filePath = file!.path.toString();
-                        });
+                        String _content = '';
+                        final result = await FilePicker.platform.pickFiles(
+                            type: FileType.custom, allowedExtensions: ['csv']);
+                        if (result != null && result.files.isNotEmpty) {
+                          if (kIsWeb) {
+                            final fileBytes = result.files.single.bytes!;
+                            _content = String.fromCharCodes(fileBytes);
+                          } else {
+                            final file = File(result.files.single.path!);
+                            _content = await file.readAsString();
+                          }
+                          setState(() {
+                            content = _content;
+                            nameFile = result.files.single.name;
+                          });
+                        }
                       },
                       child: Text(
                         'Selecionar Arquivo',
@@ -160,7 +165,7 @@ class _MyHomePageState extends State<MyHomePage> {
                 const SizedBox(
                   width: 20,
                 ),
-                Text(filePath),
+                Text(nameFile),
               ],
             ),
             const SizedBox(
@@ -174,6 +179,7 @@ class _MyHomePageState extends State<MyHomePage> {
                   if (dataCSV != []) {
                     await loadCSV();
                     csvLength = dataCSV.length;
+                    print(csvLength);
                     final shopInfo = ShopModel.fromMap(
                       json.decode(productRequest),
                     );
